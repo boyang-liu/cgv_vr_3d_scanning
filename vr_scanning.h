@@ -50,11 +50,11 @@
 #include <vr_view_interactor.h>
 #include "plugins/vr_rgbd/intersection.h"
 
-#include <opencv2/opencv.hpp>
-#include <opencv2/imgproc.hpp>
-#include <opencv2/core.hpp>
-#include <opencv2/highgui.hpp>
-#include <opencv2/features2d/features2d.hpp>
+//#include <opencv2/opencv.hpp>
+//#include <opencv2/imgproc.hpp>
+//#include <opencv2/core.hpp>
+//#include <opencv2/highgui.hpp>
+//#include <opencv2/features2d/features2d.hpp>
 
 // different interaction states for the controllers
 enum InteractionState { IS_NONE, IS_OVER, IS_GRAB };
@@ -128,8 +128,8 @@ protected:
 	float recording_fps;
 	bool remap_color;
 
-	cv::Mat src_img, tgt_img;
-	std::vector<cv::Mat> record_imgs;
+//	cv::Mat src_img, tgt_img;
+//	std::vector<cv::Mat> record_imgs;
 	bool is_filled, is_filled_2;
 	///
 	std::future<size_t> future_handle;
@@ -217,6 +217,7 @@ protected:
 public:
 	vr_scanning();
 	size_t generate_depths();
+	void generate_mesh();
 	size_t construct_point_cloud();
 	rgbd::frame_type read_rgb_frame(); // should be a thread
 	rgbd::frame_type read_depth_frame();

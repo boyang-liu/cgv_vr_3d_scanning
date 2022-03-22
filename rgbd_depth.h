@@ -114,15 +114,16 @@ public:
 	void clear_depth();
 
 	std::vector<int> Pixels;
-
+	
+	int width;
+	int height;
 
 protected:
 	vec3 camera_pos;
 	Mat camera_rotation;
 	vec3 camera_translation;
 	
-	int width;
-	int height;
+	
 	
 
 

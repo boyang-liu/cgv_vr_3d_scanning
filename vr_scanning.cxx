@@ -243,7 +243,7 @@ size_t vr_scanning::generate_depths() {
 
 	double fx_d, fy_d, cx_d, cy_d, depth_scale;
 	rgbd_inp.get_V1_parameters(fx_d, fy_d, cx_d, cy_d, depth_scale);
-	std::cout<< fx_d << fy_d << cx_d << cy_d << depth_scale <<std::endl;
+	//std::cout<< fx_d <<"/" << fy_d << "/" << cx_d << "/" << cy_d << "/" << depth_scale << std::endl;
 
 	
 	intermediate_depth.para.fx_d = fx_d;
@@ -252,6 +252,11 @@ size_t vr_scanning::generate_depths() {
 	intermediate_depth.para.cy_d = cy_d;
 	intermediate_depth.para.depth_scale = depth_scale;
 
+	intermediate_depth.height = depth_frame_2.height;
+	intermediate_depth.width = depth_frame_2.width;
+
+
+
 	std::vector<int> mypixels;
 
 	int i = 0;
@@ -259,7 +264,9 @@ size_t vr_scanning::generate_depths() {
 		for (int x = 0; x < depth_frame_2.width; ++x) {
 			
 			mypixels.push_back(depths[i]);
+
 			++i;
+
 		}
 	intermediate_depth.Pixels = mypixels;
 
@@ -267,7 +274,12 @@ size_t vr_scanning::generate_depths() {
 	return 0;
 }
 
+void vr_scanning::generate_mesh() {
 
+
+
+
+}
 
 
 
@@ -311,8 +323,8 @@ size_t vr_scanning::construct_point_cloud()
 				if (rgbd_inp.map_depth_to_point(x, y, depths[i], &p[0])) {
 					// flipping y to make it the same direction as in pixel y coordinate
 					p = -p;
-					p = rgbd_2_controller_orientation * p + rgbd_2_controller_position;
-					p = controller_orientation_pc * p + controller_position_pc;
+					//p = rgbd_2_controller_orientation * p + rgbd_2_controller_position;
+					//p = controller_orientation_pc * p + controller_position_pc;
 					rgba8 c(colors[4 * i + 2], colors[4 * i + 1], colors[4 * i], 255);
 					point_cloud::Pnt vp;
 					point_cloud::Clr vc;
@@ -534,10 +546,13 @@ void vr_scanning::timer_event(double t, double dt)
 							controller_orientation_pc = controller_orientation;
 							controller_position_pc = controller_position;
 						}*/
-						controller_orientation_pc = controller_orientation;
-						controller_position_pc = controller_position;
-						//future_handle = std::async(&vr_scanning::construct_point_cloud, this);
-						generate_depths();
+						color_frame_2 = color_frame;
+						depth_frame_2 = depth_frame;
+
+						//controller_orientation_pc = controller_orientation;
+						//controller_position_pc = controller_position;
+						future_handle = std::async(&vr_scanning::construct_point_cloud, this);
+						//generate_depths();
 					}
 				}
 			}
@@ -1068,81 +1083,108 @@ void vr_scanning::open_image()
 	a = cv::imread("D://7.png");
 	cv::imshow("123", a);*/
 
-	uint8_t uarr[] = { 1,2,3,4,5,6,7,8,9,10,11,12 };
-	int rows = 2;
-	int cols = 2;
-	cv::Size sz(cols, rows);
 
-	cv::Mat mat1(sz, CV_8UC3, uarr);
-	cv::Mat mat2(rows, cols, CV_8UC3, uarr);
 
-	std::cout << "mat1: \n" << mat1 << "\n\nmat2:\n" << mat2 << std::endl;
 
-	if (record_imgs.size() < 3)
-		return;
 
-	cv::Mat img_1 = record_imgs.at(1);
-	cv::Mat img_2 = cv::imread("D://7.png");
-	cv::imshow("img1", img_1);
-	cv::imshow("img2", img_2);
 
-	//-- initialize
-	std::vector<cv::KeyPoint> keypoints_1, keypoints_2;
-	cv::Mat descriptors_1, descriptors_2;
-	cv::Ptr<cv::FeatureDetector> detector = cv::ORB::create();
-	cv::Ptr<cv::DescriptorExtractor> descriptor = cv::ORB::create();
 
-	cv::Ptr<cv::DescriptorMatcher> matcher = cv::DescriptorMatcher::create("BruteForce-Hamming");
 
-	//-- Oriented FAST
-	detector->detect(img_1, keypoints_1);
-	detector->detect(img_2, keypoints_2);
 
-	//-- BRIEF 
-	descriptor->compute(img_1, keypoints_1, descriptors_1);
-	descriptor->compute(img_2, keypoints_2, descriptors_2);
 
-	std::cout << "size: " << keypoints_1.size() << "x y: " << keypoints_1.at(2).pt.x << " " << keypoints_1.at(2).pt.y << std::endl;
-	cv::Mat outimg1;
-	drawKeypoints(img_1, keypoints_1, outimg1, cv::Scalar::all(-1), cv::DrawMatchesFlags::DEFAULT);
-	
-	cv::imshow("ORB", outimg1);
 
-	// Hamming Distance
-	std::vector<cv::DMatch> matches;
-	//BFMatcher matcher ( NORM_HAMMING );
-	matcher->match(descriptors_1, descriptors_2, matches);
+	//uint8_t uarr[] = { 1,2,3,4,5,6,7,8,9,10,11,12 };
+	//int rows = 2;
+	//int cols = 2;
+	//cv::Size sz(cols, rows);
 
-	double min_dist = 10000, max_dist = 0;
+	//cv::Mat mat1(sz, CV_8UC3, uarr);
+	//cv::Mat mat2(rows, cols, CV_8UC3, uarr);
 
-	for (int i = 0; i < descriptors_1.rows; ++i)
-	{
-		double dist = matches[i].distance;
-		if (dist < min_dist) min_dist = dist;
-		if (dist > max_dist) max_dist = dist;
-	}
+	//std::cout << "mat1: \n" << mat1 << "\n\nmat2:\n" << mat2 << std::endl;
 
-	std::vector<cv::DMatch> good_matches;
-	for (int i = 0; i < descriptors_1.rows; ++i)
-	{
-		if (matches[i].distance <= std::max(2 * min_dist, 30.0))
-		{
-			good_matches.emplace_back(matches[i]);
-		}
-	}
-	keypoints_1.at(good_matches[1].queryIdx).pt.x;
-	for (int i = 0; i < good_matches.size(); ++i)
-	{
-		std::cout << "i: " << i << "x y: " << good_matches[i].queryIdx << " " << good_matches[i].trainIdx << std::endl;
-	}
-	std::cout << "number of matches: " << good_matches.size() << std::endl;
-	cv::Mat img_match;
-	cv::Mat img_goodmatch;
-	drawMatches(img_1, keypoints_1, img_2, keypoints_2, matches, img_match);
-	drawMatches(img_1, keypoints_1, img_2, keypoints_2, good_matches, img_goodmatch);
-	cv::imshow("all matched pairs", img_match);
-	cv::imshow("optimized pairs", img_goodmatch);
-	cv::waitKey(0);
+	//if (record_imgs.size() < 3)
+	//	return;
+
+	//cv::Mat img_1 = record_imgs.at(1);
+	//cv::Mat img_2 = cv::imread("D://7.png");
+	//cv::imshow("img1", img_1);
+	//cv::imshow("img2", img_2);
+
+	////-- initialize
+	//std::vector<cv::KeyPoint> keypoints_1, keypoints_2;
+	//cv::Mat descriptors_1, descriptors_2;
+	//cv::Ptr<cv::FeatureDetector> detector = cv::ORB::create();
+	//cv::Ptr<cv::DescriptorExtractor> descriptor = cv::ORB::create();
+
+	//cv::Ptr<cv::DescriptorMatcher> matcher = cv::DescriptorMatcher::create("BruteForce-Hamming");
+
+	////-- Oriented FAST
+	//detector->detect(img_1, keypoints_1);
+	//detector->detect(img_2, keypoints_2);
+
+	////-- BRIEF 
+	//descriptor->compute(img_1, keypoints_1, descriptors_1);
+	//descriptor->compute(img_2, keypoints_2, descriptors_2);
+
+	//std::cout << "size: " << keypoints_1.size() << "x y: " << keypoints_1.at(2).pt.x << " " << keypoints_1.at(2).pt.y << std::endl;
+	//cv::Mat outimg1;
+	//drawKeypoints(img_1, keypoints_1, outimg1, cv::Scalar::all(-1), cv::DrawMatchesFlags::DEFAULT);
+	//
+	//cv::imshow("ORB", outimg1);
+
+	//// Hamming Distance
+	//std::vector<cv::DMatch> matches;
+	////BFMatcher matcher ( NORM_HAMMING );
+	//matcher->match(descriptors_1, descriptors_2, matches);
+
+	//double min_dist = 10000, max_dist = 0;
+
+	//for (int i = 0; i < descriptors_1.rows; ++i)
+	//{
+	//	double dist = matches[i].distance;
+	//	if (dist < min_dist) min_dist = dist;
+	//	if (dist > max_dist) max_dist = dist;
+	//}
+
+	//std::vector<cv::DMatch> good_matches;
+	//for (int i = 0; i < descriptors_1.rows; ++i)
+	//{
+	//	if (matches[i].distance <= std::max(2 * min_dist, 30.0))
+	//	{
+	//		good_matches.emplace_back(matches[i]);
+	//	}
+	//}
+	//keypoints_1.at(good_matches[1].queryIdx).pt.x;
+	//for (int i = 0; i < good_matches.size(); ++i)
+	//{
+	//	std::cout << "i: " << i << "x y: " << good_matches[i].queryIdx << " " << good_matches[i].trainIdx << std::endl;
+	//}
+	//std::cout << "number of matches: " << good_matches.size() << std::endl;
+	//cv::Mat img_match;
+	//cv::Mat img_goodmatch;
+	//drawMatches(img_1, keypoints_1, img_2, keypoints_2, matches, img_match);
+	//drawMatches(img_1, keypoints_1, img_2, keypoints_2, good_matches, img_goodmatch);
+	//cv::imshow("all matched pairs", img_match);
+	//cv::imshow("optimized pairs", img_goodmatch);
+	//cv::waitKey(0);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 }
 
