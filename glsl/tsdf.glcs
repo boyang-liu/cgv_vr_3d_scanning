@@ -1,0 +1,32 @@
+#version 450
+
+
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+layout (std430, binding = 0) buffer GridPointsBuffer
+{
+    int depthimage[];
+};
+
+layout (std430, binding = 1) buffer cubesBuffer
+{
+    float vertices[];
+};
+
+uniform int resolution;
+uniform vec3  min_pos;
+uniform vec3  max_pos;
+
+
+void main(){
+	ivec3 id = ivec3(gl_GlobalInvocationID);
+	
+	int x = id.x;
+    int y = id.y;
+    int z = id.z;
+
+	
+	
+	
+	
+}
