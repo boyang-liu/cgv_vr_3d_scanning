@@ -1,5 +1,18 @@
 ﻿#include "vr_scanning.h"
-
+#include <cgv/base/base.h> // this should be first header to avoid warning
+#include <omp.h>
+#include <cgv_gl/gl/gl.h>
+#include <cgv/gui/trigger.h>
+#include <cgv/gui/dialog.h>
+#include <cgv/gui/key_event.h>
+#include <cgv/gui/file_dialog.h>
+#include <cgv/utils/convert.h>
+#include <cgv/utils/file.h>
+#include <cgv/utils/dir.h>
+#include <cgv/utils/statistics.h>
+#include <cgv/type/standard_types.h>
+#include <cgv/math/ftransform.h>
+#include <cgv/math/svd.h>
 /// construct boxes that represent a table of dimensions tw,td,th and leg width tW
 void vr_scanning::construct_table(float tw, float td, float th, float tW)
 {
@@ -229,6 +242,10 @@ vr_scanning::vr_scanning()
 		pc_file_path = QUOTE_SYMBOL_VALUE(INPUT_DIR) " / .. / data";
 
 		connect(cgv::gui::get_animation_trigger().shoot, this, &vr_scanning::timer_event);
+
+		pcbb.pos1 = vec3(0.03623, -0.85, 2.45);
+		pcbb.pos2 = vec3(2.03623, 1.15, 4.45);
+
 }
 
 
@@ -297,6 +314,7 @@ size_t vr_scanning::construct_point_cloud()
 
 
 
+
 		intermediate_pc.clear();
 		const unsigned short* depths = reinterpret_cast<const unsigned short*>(&depth_frame_2.frame_data.front());
 		const unsigned char* colors = reinterpret_cast<const unsigned char*>(&color_frame_2.frame_data.front());
@@ -324,7 +342,7 @@ size_t vr_scanning::construct_point_cloud()
 					// flipping y to make it the same direction as in pixel y coordinate
 					p = -p;
 					//p = rgbd_2_controller_orientation * p + rgbd_2_controller_position;
-					//p = controller_orientation_pc * p + controller_position_pc;
+					p = controller_orientation_pc * p + controller_position_pc;
 					rgba8 c(colors[4 * i + 2], colors[4 * i + 1], colors[4 * i], 255);
 					point_cloud::Pnt vp;
 					point_cloud::Clr vc;
@@ -340,6 +358,59 @@ size_t vr_scanning::construct_point_cloud()
 				}
 				++i;
 			}
+
+
+		//=============================
+
+		intermediate_depth.clear_depth();
+		//const unsigned short* depths = reinterpret_cast<const unsigned short*>(&depth_frame_2.frame_data.front());
+
+		double fx_d, fy_d, cx_d, cy_d, depth_scale;
+		rgbd_inp.get_V1_parameters(fx_d, fy_d, cx_d, cy_d, depth_scale);
+		//std::cout<< fx_d <<"/" << fy_d << "/" << cx_d << "/" << cy_d << "/" << depth_scale << std::endl;
+
+
+		intermediate_depth.para.fx_d = fx_d;
+		intermediate_depth.para.fy_d = fy_d;
+		intermediate_depth.para.cx_d = cx_d;
+		intermediate_depth.para.cy_d = cy_d;
+		intermediate_depth.para.depth_scale = depth_scale;
+
+		intermediate_depth.height = depth_frame_2.height;
+		intermediate_depth.width = depth_frame_2.width;
+
+
+
+		std::vector<int> mypixels;
+
+		int i2 = 0;
+		for (int y = 0; y < depth_frame_2.height; ++y)
+			for (int x = 0; x < depth_frame_2.width; ++x) {
+
+				mypixels.push_back(depths[i2]);
+
+				++i2;
+
+			}
+		intermediate_depth.Pixels = mypixels;
+		intermediate_depth.camera_rotation = controller_orientation_pc;
+		intermediate_depth.camera_translation = controller_position_pc;
+		intermediate_depth.camera_pos = intermediate_depth.camera_rotation * vec3(0, 0, 0) + intermediate_depth.camera_translation;
+
+		
+
+		//=============================
+
+
+
+
+
+
+
+
+
+
+
 		return intermediate_pc.get_nr_points();
 }
 rgbd::frame_type vr_scanning::read_rgb_frame() // should be a thread
@@ -549,8 +620,10 @@ void vr_scanning::timer_event(double t, double dt)
 						color_frame_2 = color_frame;
 						depth_frame_2 = depth_frame;
 
-						//controller_orientation_pc = controller_orientation;
-						//controller_position_pc = controller_position;
+						controller_orientation_pc = controller_orientation;
+						controller_position_pc = controller_position;
+
+
 						future_handle = std::async(&vr_scanning::construct_point_cloud, this);
 						//generate_depths();
 					}
@@ -558,6 +631,35 @@ void vr_scanning::timer_event(double t, double dt)
 			}
 		}
 }
+
+
+void vr_scanning::test()
+{
+	//intermediate_depth.write_txt();
+
+	std::string fn = cgv::gui::file_save_dialog("point cloud", "Point Cloud Files (lbypc,ply,bpc,apc,obj):*.txt;*.lbypc");
+	//for (int i = 0; i < 10; i++) {
+
+	if (fn.empty())
+		return;
+	FILE* fp = fopen(fn.c_str(), "wb");
+	if (!fp)
+		return;
+
+	intermediate_depth.write_txt(fn);
+
+	fclose(fp);
+
+	//}
+	return;
+
+
+
+
+}
+
+
+
 
 std::string vr_scanning::get_type_name() const
 {
@@ -579,6 +681,9 @@ void vr_scanning::create_gui()
 		add_view("nr_mesh_frames", nr_mesh_frames);*/
 
 		add_gui("rgbd_protocol_path", rgbd_protocol_path, "directory", "w=150");
+
+		
+		connect_copy(add_button("test")->click, rebind(this, &vr_scanning::test));
 		add_member_control(this, "rgbd_started", rgbd_started, "check");
 		add_member_control(this, "record_frame", record_frame, "check");
 		add_member_control(this, "record_all_frames", record_all_frames, "check");
@@ -793,8 +898,11 @@ bool vr_scanning::handle(cgv::gui::event& e)
 			// check for controller pose events
 			int ci = vrpe.get_trackable_index();
 			if (ci == rgbd_controller_index) {
+				
 				controller_orientation = vrpe.get_orientation();
 				controller_position = vrpe.get_position();
+
+
 			}
 			if (ci != -1) {
 				if (state[ci] == IS_GRAB) {
@@ -906,9 +1014,82 @@ void vr_scanning::draw_pc(cgv::render::context& ctx, const point_cloud& pc)
 			pr.disable(ctx);
 		}
 }
+void vr_scanning::draw_boudingbox(cgv::render::context& ctx, vec3& pos1, vec3& pos2)
+{
+	std::vector<vec3> P;
+	std::vector<rgb> C;
+	P.push_back(pos1);
+	P.push_back(pos1 + vec3(pos2[0] - pos1[0], 0, 0));
+	P.push_back(pos1);
+	P.push_back(pos1 + vec3(0, pos2[1] - pos1[1], 0));
+	P.push_back(pos1);
+	P.push_back(pos1 + vec3(0, 0, pos2[2] - pos1[2]));
 
+	P.push_back(P[1]);
+	P.push_back(P[1] + vec3(0, pos2[1] - pos1[1], 0));
+	P.push_back(P[1]);
+	P.push_back(P[1] + vec3(0, 0, pos2[2] - pos1[2]));
+
+	P.push_back(P[3]);
+	P.push_back(P[3] + vec3(pos2[0] - pos1[0], 0, 0));
+	P.push_back(P[3]);
+	P.push_back(P[3] + vec3(0, 0, pos2[2] - pos1[2]));
+
+	P.push_back(P[5]);
+	P.push_back(P[5] + vec3(pos2[0] - pos1[0], 0, 0));
+	P.push_back(P[5]);
+	P.push_back(P[5] + vec3(0, pos2[1] - pos1[1], 0));
+
+	P.push_back(P[7]);
+	P.push_back(pos2);
+	P.push_back(P[9]);
+	P.push_back(pos2);
+	P.push_back(P[13]);
+	P.push_back(pos2);
+
+	rgb c;//(0.5, 0.5, 0.5)
+
+
+
+	//if (!setboundingboxmode)
+	//	c = rgb(0.5, 0.5, 0.5);
+	//else
+		c = rgb(1.0, 0, 0);
+	for (int i = 0; i <= 24; i++)
+		C.push_back(c);
+	cgv::render::shader_program& prog = ctx.ref_default_shader_program();
+	int pi = prog.get_position_index();
+	int ci = prog.get_color_index();
+	cgv::render::attribute_array_binding::set_global_attribute_array(ctx, pi, P);
+	cgv::render::attribute_array_binding::enable_global_array(ctx, pi);
+	cgv::render::attribute_array_binding::set_global_attribute_array(ctx, ci, C);
+	cgv::render::attribute_array_binding::enable_global_array(ctx, ci);
+	glLineWidth(3);
+	prog.enable(ctx);
+	glDrawArrays(GL_LINES, 0, (GLsizei)P.size());
+	prog.disable(ctx);
+	cgv::render::attribute_array_binding::disable_global_array(ctx, pi);
+	cgv::render::attribute_array_binding::disable_global_array(ctx, ci);
+	glLineWidth(1);
+
+
+	//// draw static boxes
+	//	cgv::render::surface_renderer& renderer = cgv::render::ref_box_renderer(ctx);
+	//	renderer.set_render_style(style);
+	//	renderer.set_box_array(ctx, boxes);
+	//	renderer.set_color_array(ctx, box_colors);
+	//	if (renderer.validate_and_enable(ctx)) {
+	//		glDrawArrays(GL_POINTS, 0, (GLsizei)boxes.size());
+	//	}
+	//	renderer.disable(ctx);
+
+
+}
 void vr_scanning::draw(cgv::render::context& ctx)
 {
+	draw_boudingbox(ctx, pcbb.pos1, pcbb.pos2);
+
+
 		if (show_points) {
 			auto& pr = cgv::render::ref_point_renderer(ctx);
 			pr.set_render_style(point_style);

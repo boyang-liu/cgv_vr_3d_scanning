@@ -13,10 +13,28 @@ layout (std430, binding = 1) buffer cubesBuffer
     float vertices[];
 };
 
+struct Pixelid
+{
+    float x_id, y_id;
+};
+
+
+
 uniform ivec3 vereticesGridDims;
 uniform vec3  min_pos;
 uniform vec3  max_pos;
-uniform float  voxel_length;
+uniform float voxel_length;
+
+
+uniform float fx_d;
+uniform float fy_d;
+uniform float cx_d;
+uniform float cy_d;
+uniform float depth_scale;
+
+
+
+
 
 uniform mat3 backprojectionmatrix;
 
@@ -29,6 +47,23 @@ int indexVertex(int x, int y, int z){
 vec3 posVertex(int x, int y, int z){
 
 	vec3 pos_V= vec3(min_pos.x+x*voxel_length,min_pos.y+y*voxel_length,min_pos.z+z*voxel_length);
+	return pos_V;
+
+}
+
+
+
+vec3 getpixelIndex(float x,float y,float z){
+
+	float x_new , y_new;
+	int x_n , y_n;
+	float d;
+	d=z*8/depth_scale;
+	x_new=x/(d*fx_d)+cx_d;
+	y_new=y/(d*fy_d)+cy_d;
+
+
+	Pixelid p_id = Pixelid(x_n , y_n);
 	return pos_V;
 
 }

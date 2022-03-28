@@ -131,6 +131,12 @@ bool rgbd_depth::read_txt(const std::string& file_name)
 	int c_w;
 	int c_h;
 
+	double p_1;
+	double p_2;
+	double p_3;
+	double p_4;
+	double p_5;
+
 	if (sscanf(lines[0].begin, "%d  ", &c_w) == 1) {
 
 		width = c_w;
@@ -145,6 +151,10 @@ bool rgbd_depth::read_txt(const std::string& file_name)
 
 		camera_pos = c_p;
 	}
+
+
+
+
 
 
 	if (sscanf(lines[3].begin, "%f %f %f ", &c_r[0], &c_r[1], &c_r[2]) == 3) {
@@ -169,7 +179,34 @@ bool rgbd_depth::read_txt(const std::string& file_name)
 	}
 
 
-	for (i = 7; i < lines.size(); ++i) {
+
+
+
+
+	if (sscanf(lines[7].begin, "%g  ", &p_1) == 1) {
+
+		para.fx_d = p_1;
+	}
+	if (sscanf(lines[8].begin, "%g  ", &p_2) == 1) {
+
+		para.fy_d = p_2;
+	}
+	if (sscanf(lines[9].begin, "%g  ", &p_3) == 1) {
+
+		para.cx_d = p_3;
+	}
+	if (sscanf(lines[10].begin, "%g  ", &p_4) == 1) {
+
+		para.cy_d = p_4;
+	}
+	if (sscanf(lines[11].begin, "%g  ", &p_5) == 1) {
+
+		para.depth_scale = p_5;
+	}
+
+
+
+	for (i = 12; i < lines.size(); ++i) {
 		if (lines[i].empty())
 			continue;
 
@@ -206,6 +243,19 @@ bool rgbd_depth::write_txt(const std::string& file_name)
 	ofile << "\n";
 	ofile << camera_translation << " ";
 	ofile << "\n";
+
+	ofile << para.fx_d << " ";
+	ofile << "\n";
+	ofile << para.fy_d << " ";
+	ofile << "\n";
+	ofile << para.cx_d << " ";
+	ofile << "\n";
+	ofile << para.cy_d << " ";
+	ofile << "\n";
+	ofile << para.depth_scale << " ";
+	ofile << "\n";
+
+	std::cout<<"Pixels.size():" << Pixels.size() << std::endl;
 	for (int i = 0; i < Pixels.size(); i++) {
 
 		ofile << Pixels[i] << " ";

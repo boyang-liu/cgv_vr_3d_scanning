@@ -37,6 +37,7 @@
 #include <rgbd_input.h>
 #include <rgbd_mouse.h>
 #include "rgbd_depth.h"
+#include "PCBoundingbox.h"
 ///@ingroup VR
 ///@{
 
@@ -214,6 +215,9 @@ protected:
 
 	void stop_rgbd();
 
+	PCBoundingbox pcbb;
+
+
 public:
 	vr_scanning();
 	size_t generate_depths();
@@ -230,6 +234,8 @@ public:
 	void construct_TSDtree();
 	bool record_this_frame(double t);
 	void timer_event(double t, double dt);
+	void test();
+
 	std::string get_type_name() const;
 
 	void create_gui();
@@ -240,7 +246,7 @@ public:
 	bool init(cgv::render::context& ctx);
 	void clear(cgv::render::context& ctx);
 	void draw_pc(cgv::render::context& ctx, const point_cloud& pc);
-
+	void draw_boudingbox(cgv::render::context& ctx, vec3& pos1, vec3& pos2);
 	void draw(cgv::render::context& ctx);
 	void on_reg_SICP_cb();
 	

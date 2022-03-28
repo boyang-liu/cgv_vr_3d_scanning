@@ -90,6 +90,13 @@ public:
 		camera_translation = vec3(0, 0, 0);
 		width = 0;
 		height = 0;
+		para.fx_d = 0;
+		para.fy_d = 0;
+		para.cx_d = 0;
+		para.cy_d = 0;
+		para.depth_scale = 0;
+
+
 
 	}
 	bool write_rgbd_depth(const std::string& file_name);
@@ -118,10 +125,13 @@ public:
 	int width;
 	int height;
 
-protected:
 	vec3 camera_pos;
 	Mat camera_rotation;
 	vec3 camera_translation;
+
+
+protected:
+	
 	
 	
 	
