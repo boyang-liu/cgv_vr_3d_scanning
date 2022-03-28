@@ -13,10 +13,25 @@ layout (std430, binding = 1) buffer cubesBuffer
     float vertices[];
 };
 
-uniform int resolution;
+uniform ivec3 vereticesGridDims;
 uniform vec3  min_pos;
 uniform vec3  max_pos;
+uniform float  voxel_length;
 
+uniform mat3 backprojectionmatrix;
+
+int indexVertex(int x, int y, int z){
+
+    return x + vereticesGridDims.x * y + vereticesGridDims.x * vereticesGridDims.y * z;
+
+}
+
+vec3 posVertex(int x, int y, int z){
+
+	vec3 pos_V= vec3(min_pos.x+x*voxel_length,min_pos.y+y*voxel_length,min_pos.z+z*voxel_length);
+	return pos_V;
+
+}
 
 void main(){
 	ivec3 id = ivec3(gl_GlobalInvocationID);
@@ -25,8 +40,11 @@ void main(){
     int y = id.y;
     int z = id.z;
 
+	int idx =indexVertex(x,y,z);
+	vec3 pos=posVertex(x,y,z);
 	
-	
-	
-	
+	vec3 pos2 = backprojectionmatrix*pos;
+
+
+
 }
