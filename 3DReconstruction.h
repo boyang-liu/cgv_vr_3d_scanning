@@ -14,8 +14,8 @@ public:
 	Reconstruction() {
 		resolution = 100;
 	};
-	bool initialize(cgv::render::context& ctx);
-	bool init(rgbd_depth input, vec3 min, vec3 max, int reso);
+	bool build_program(cgv::render::context& ctx);
+	bool init(rgbd_depth input, vec3 min, vec3 max, ivec3 reso, float voxellength);
 	bool init(rgbd_depth input, vec3 min, vec3 max);
 	bool init(rgbd_depth input);
 	bool tsdf_algorithm(cgv::render::context& ctx);
@@ -27,11 +27,11 @@ public:
 	void bindbuffer();
 
 	void createBuffers();
-	int resolution;
+	ivec3 resolution;
 	rgbd_depth currentdepthimage;
 	vec3 min_pos;
 	vec3 max_pos;
-
+	float voxel_length;
 
 protected:
 	cgv::render::shader_program tsdf_prog;

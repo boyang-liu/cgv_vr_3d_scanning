@@ -6,7 +6,7 @@
 #define VERTICES_SSB_BP             1
 
 
-bool Reconstruction::initialize(cgv::render::context& ctx) {
+bool Reconstruction::build_program(cgv::render::context& ctx) {
 
 	if (!tsdf_prog.build_program(ctx, "glsl/tsdf.glpr", true)) {
 		std::cerr << "ERROR in building shader program " << std::endl;
@@ -15,7 +15,7 @@ bool Reconstruction::initialize(cgv::render::context& ctx) {
 	
 	return true;
 }
-bool Reconstruction::init(rgbd_depth input,vec3 min,vec3 max, int reso ) {
+bool Reconstruction::init(rgbd_depth input, vec3 min, vec3 max, ivec3 reso, float voxellength) {
 
 	if (input.Pixels.size()==0)
 		return false;
@@ -24,6 +24,7 @@ bool Reconstruction::init(rgbd_depth input,vec3 min,vec3 max, int reso ) {
 	min_pos= min;
 	max_pos= max;
 	resolution = reso;
+	voxel_length = voxellength;
 	return true;
 }
 bool Reconstruction::init(rgbd_depth input, vec3 min, vec3 max) {
@@ -51,17 +52,19 @@ bool Reconstruction::tsdf_algorithm(cgv::render::context& ctx) {
 
 	if (currentdepthimage.Pixels.size() == 0)
 		return false;
-	
-	int length = (resolution + 1) * (resolution + 1) * (resolution + 1);
+		
+	ivec3 vereticesGridDims = ivec3(resolution[0] + 1, resolution[1] + 1, resolution[2] + 1);
+	int length = vereticesGridDims[0] * vereticesGridDims[1] * vereticesGridDims[2];
 
-	tsdf_prog.set_uniform(ctx, "resolution", resolution);
+	tsdf_prog.set_uniform(ctx, "vereticesGridDims", vereticesGridDims);
 	tsdf_prog.set_uniform(ctx, "min_pos", min_pos);
 	tsdf_prog.set_uniform(ctx, "max_pos", max_pos);
+	tsdf_prog.set_uniform(ctx, "voxel_length", voxel_length);
+
 	tsdf_prog.enable(ctx);
-	glDispatchCompute(resolution + 1, resolution + 1, resolution + 1);
+	glDispatchCompute(vereticesGridDims[0], vereticesGridDims[1], vereticesGridDims[2]);
 	glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 	tsdf_prog.disable(ctx);
-
 
 	return true;
 
@@ -81,13 +84,16 @@ bool Reconstruction::drawmesh(cgv::render::context& ctx) {
 
 
 void Reconstruction::deleteBuffers() {
+
 	depthimage.deleteBuffer();
 	vertices.deleteBuffer();
+
 }
 void Reconstruction::bindbuffer() {
 
 	depthimage.setBindingPoint(DPETHIMAGE_SSB_BP);
 	vertices.setBindingPoint(VERTICES_SSB_BP);
+
 }
 
 
@@ -95,8 +101,10 @@ void Reconstruction::bindbuffer() {
 
 
 void Reconstruction::createBuffers() {
-	int vertices_length = (resolution+1) * (resolution + 1) * (resolution + 1);
+
 	int pixels_length = currentdepthimage.height * currentdepthimage.width;
+	int vertices_length = (resolution[0] +1) * (resolution[1] + 1) * (resolution[2] + 1);
+	
 
 	depthimage = Buffer(GL_SHADER_STORAGE_BUFFER, GL_DYNAMIC_COPY, pixels_length * sizeof(int));
 	vertices = Buffer(GL_SHADER_STORAGE_BUFFER, GL_DYNAMIC_COPY, vertices_length * sizeof(float));
