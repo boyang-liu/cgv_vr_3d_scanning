@@ -3,19 +3,14 @@
 
 layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 
-layout (std430, binding = 0) buffer GridPointsBuffer
+layout (std430, binding = 0) buffer depthimageBuffer
 {
     int depthimage[];
 };
 
-layout (std430, binding = 1) buffer cubesBuffer
+layout (std430, binding = 1) buffer VerticesBuffer
 {
     float vertices[];
-};
-
-struct Pixelid
-{
-    float x_id, y_id;
 };
 
 
@@ -31,18 +26,27 @@ uniform float fy_d;
 uniform float cx_d;
 uniform float cy_d;
 uniform float depth_scale;
+uniform int DepthImageWidth;
+uniform int DepthImageHeight;
 
-
-
-
-
-uniform mat3 backprojectionmatrix;
+uniform mat3 backrotationmatrix;
+uniform vec3 cam_pos;
+uniform bool IsFirstFrame;
 
 int indexVertex(int x, int y, int z){
 
     return x + vereticesGridDims.x * y + vereticesGridDims.x * vereticesGridDims.y * z;
 
 }
+/*
+int indexPixel(int x, int y)
+{
+
+	return x + DepthImageWidth * y ;
+
+}
+*/
+
 
 vec3 posVertex(int x, int y, int z){
 
@@ -53,19 +57,18 @@ vec3 posVertex(int x, int y, int z){
 
 
 
-vec3 getpixelIndex(float x,float y,float z){
+ivec2 getpixelIndex(float x,float y,float z){
 
 	float x_new , y_new;
 	int x_n , y_n;
-	float d;
-	d=z*8/depth_scale;
-	x_new=x/(d*fx_d)+cx_d;
-	y_new=y/(d*fy_d)+cy_d;
+		
+	x_new=x/(z*fx_d)+cx_d;
+	y_new=y/(z*fy_d)+cy_d;
+	x_n=floor(x_new+0.5);
+	y_n=floor(y_new+0.5);	
 
-
-	Pixelid p_id = Pixelid(x_n , y_n);
-	return pos_V;
-
+	//return x_n + DepthImageWidth * y_n ;
+	return vec2(x_n,y_n)
 }
 
 void main(){
@@ -76,10 +79,18 @@ void main(){
     int z = id.z;
 
 	int idx =indexVertex(x,y,z);
-	vec3 pos=posVertex(x,y,z);
+	vec3 pos=posVertex(x,y,z);//get the position of the current GridVertex in global coordinate
+	vec3 pos2 = backrotationmatrix*(pos-cam_pos);//get the position of the GridVertex in camera coordinate
+
+	ivec2 current_pixel= getpixelIndex(pos2.x,pos2.y,pos2.z);
+	int current_pixel_id=current_pixel.x+ DepthImageWidth * current_pixel.y; 
+
+	float d = depth_scale * depthimage[current_pixel_id] * 0.125;
+	vec3 p_pixel=vec3((current_pixel.x - cx_d) * d * fx_d,(current_pixel.y - cy_d) * d * fy_d,d);
+
+	float sdf=length(p_pixel)-length(pos2);
+	float truncated_distance=voxel_length*5;
+
+	float tsdf= sdf/
 	
-	vec3 pos2 = backprojectionmatrix*pos;
-
-
-
 }
