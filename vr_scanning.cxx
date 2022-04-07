@@ -255,6 +255,7 @@ vr_scanning::vr_scanning()
 
 
 size_t vr_scanning::generate_depths() {
+
 	intermediate_depth.clear_depth();
 	const unsigned short* depths = reinterpret_cast<const unsigned short*>(&depth_frame_2.frame_data.front());
 
@@ -263,11 +264,11 @@ size_t vr_scanning::generate_depths() {
 	//std::cout<< fx_d <<"/" << fy_d << "/" << cx_d << "/" << cy_d << "/" << depth_scale << std::endl;
 
 	
-	intermediate_depth.para.fx_d = fx_d;
-	intermediate_depth.para.fy_d = fy_d;
-	intermediate_depth.para.cx_d = cx_d;
-	intermediate_depth.para.cy_d = cy_d;
-	intermediate_depth.para.depth_scale = depth_scale;
+	intermediate_depth.para.fx_d = float(fx_d);
+	intermediate_depth.para.fy_d = float(fy_d);
+	intermediate_depth.para.cx_d = float(cx_d);
+	intermediate_depth.para.cy_d = float(cy_d);
+	intermediate_depth.para.depth_scale = float(depth_scale);
 
 	intermediate_depth.height = depth_frame_2.height;
 	intermediate_depth.width = depth_frame_2.width;
@@ -286,7 +287,9 @@ size_t vr_scanning::generate_depths() {
 
 		}
 	intermediate_depth.Pixels = mypixels;
-
+	intermediate_depth.camera_rotation = controller_orientation_pc;
+	intermediate_depth.camera_translation = controller_position_pc;
+	intermediate_depth.camera_pos = intermediate_depth.camera_rotation * vec3(0, 0, 0) + intermediate_depth.camera_translation;
 	//return intermediate_depth.get_nr_points();
 	return 0;
 }

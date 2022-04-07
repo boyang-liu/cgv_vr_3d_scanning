@@ -18,7 +18,7 @@ public:
 	bool init(rgbd_depth input, vec3 min, vec3 max, ivec3 reso, float voxellength);
 	bool init(rgbd_depth input, vec3 min, vec3 max);
 	bool init(rgbd_depth input);
-	bool tsdf_algorithm(cgv::render::context& ctx);
+	bool tsdf_algorithm(cgv::render::context& ctx,bool isfirstframe);
 	bool MC_algorithm(cgv::render::context& ctx);
 	bool drawmesh(cgv::render::context& ctx);
 
@@ -32,12 +32,22 @@ public:
 	vec3 min_pos;
 	vec3 max_pos;
 	float voxel_length;
+	float surfacelevel;
+	int maxNumVertices;
+	int maxNumTriangles;
+	GLuint numVertices = 0;
+	GLuint numTriangles = 0;
+	void updateBuffers();
+	void deleteBuffers();
+	void deleteAllBuffers();
+	int* flattenTriTable();
+
 
 protected:
 	cgv::render::shader_program tsdf_prog;
-
-
-	
+	cgv::render::shader_program triangle_prog;
+	cgv::render::shader_program marchingcubes_prog;
+	cgv::render::shader_program normal_prog;
 
 
 private:
@@ -45,7 +55,13 @@ private:
 	Buffer depthimage;
 	Buffer vertices;
 
-
+	Buffer trianglenormals;
+	Buffer triangles;
+	Buffer tables;
+	Buffer cubeedges;
+	Buffer trianglevertices;
+	Buffer normals;
+	Buffer normalid;
 
 
 

@@ -75,7 +75,7 @@
 	/// simple structure to store the point range of a point cloud component
 
 	struct parameters {
-		double fx_d, fy_d, cx_d, cy_d, depth_scale;
+		float fx_d, fy_d, cx_d, cy_d, depth_scale;
 
 	};
 
