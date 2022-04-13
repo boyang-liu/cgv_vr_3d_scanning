@@ -22,10 +22,6 @@ public:
 	bool MC_algorithm(cgv::render::context& ctx);
 	bool drawmesh(cgv::render::context& ctx);
 
-	void deleteBuffers();
-
-	void bindbuffer();
-
 	void createBuffers();
 	ivec3 resolution;
 	rgbd_depth currentdepthimage;
@@ -41,7 +37,7 @@ public:
 	void deleteBuffers();
 	void deleteAllBuffers();
 	int* flattenTriTable();
-
+	void bindbuffer();
 
 protected:
 	cgv::render::shader_program tsdf_prog;
@@ -53,11 +49,13 @@ protected:
 private:
 
 	Buffer depthimage;
-	Buffer vertices;
-
+	Buffer tsdfweight;
+	Buffer vertices;//gridpoints
+	Buffer tables;
 	Buffer trianglenormals;
 	Buffer triangles;
-	Buffer tables;
+
+
 	Buffer cubeedges;
 	Buffer trianglevertices;
 	Buffer normals;

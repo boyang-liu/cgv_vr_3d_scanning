@@ -13,6 +13,7 @@
 #include <cgv/type/standard_types.h>
 #include <cgv/math/ftransform.h>
 #include <cgv/math/svd.h>
+
 /// construct boxes that represent a table of dimensions tw,td,th and leg width tW
 void vr_scanning::construct_table(float tw, float td, float th, float tW)
 {
@@ -660,6 +661,73 @@ void vr_scanning::test()
 
 
 }
+void vr_scanning::test2() {
+
+	std::string fn = cgv::gui::file_open_dialog("source point cloud(*.lbypc;*.obj;*.pobj;*.ply;*.bpc;*.lpc;*.xyz;*.pct;*.points;*.wrl;*.apc;*.pnt;*.txt)", "Point cloud files:*.lbypc;*.obj;*.pobj;*.ply;*.bpc;*.lpc;*.xyz;*.pct;*.points;*.wrl;*.apc;*.pnt;*.txt;");
+	
+	if (fn.empty())
+		return;
+
+	rgbd_depth mydepthimage;
+	mydepthimage.read_txt(fn);
+
+	std::cout << "mydepthimage.get_nr_pixels(): "<< mydepthimage.get_nr_pixels() << std::endl;
+	
+	Reconstruction myrecon;
+	cgv::render::context& ctx = *get_context();
+
+	//myrecon.build_program(ctx);
+	//myrecon.init(mydepthimage, vec3(0.83623, -0.728815, 2.24123), vec3(2.83623, 1.271185, 4.24123), ivec3(100,100,100), 0.02);
+
+	static const double fx_d = 1.0 / 5.9421434211923247e+02;
+	static const double fy_d = 1.0 / 5.9104053696870778e+02;
+	static const double cx_d = 3.3930780975300314e+02;
+	static const double cy_d = 2.4273913761751615e+02;
+	int i = 0;
+
+	for (int y = 0; y < mydepthimage.height; ++y)
+		for (int x = 0; x < mydepthimage.width; ++x) {
+			vec3 p;
+			if (mydepthimage.Pixels[i] == 0) {
+				++i;
+				continue;
+			}
+			
+			int thisdepth=mydepthimage.Pixels[i] / 8;
+
+			
+			double d = 0.001 * thisdepth;
+			p[0] = float((x - cx_d) * d * fx_d);
+			p[1] = float((y - cy_d) * d * fy_d);
+			p[2] = float(d);
+			
+				// flipping y to make it the same direction as in pixel y coordinate
+
+				p = -p;
+
+				//p = rgbd_2_controller_orientation * p + rgbd_2_controller_position;
+
+				p = mydepthimage.camera_rotation * p + mydepthimage.camera_translation;
+				
+				point_cloud::Pnt vp;
+				point_cloud::Clr vc;
+				// filter points without color for 32 bit formats
+				static const rgba8 filter_color = rgba8(0, 0, 0, 255);
+					vc = filter_color;
+					vp = p;
+
+				intermediate_pc.add_point(vp, vc);
+			
+			++i;
+		}
+
+	std::cout << "mydepthimage.Pixels[10]: " << mydepthimage.Pixels[10] << std::endl;
+
+	current_pc = intermediate_pc;
+	intermediate_depth = mydepthimage;
+}
+
+
 
 
 
@@ -686,7 +754,7 @@ void vr_scanning::create_gui()
 		add_gui("rgbd_protocol_path", rgbd_protocol_path, "directory", "w=150");
 
 		
-		connect_copy(add_button("test")->click, rebind(this, &vr_scanning::test));
+		connect_copy(add_button("test")->click, rebind(this, &vr_scanning::test2));
 		add_member_control(this, "rgbd_started", rgbd_started, "check");
 		add_member_control(this, "record_frame", record_frame, "check");
 		add_member_control(this, "record_all_frames", record_all_frames, "check");
@@ -1005,6 +1073,56 @@ void vr_scanning::clear(cgv::render::context& ctx)
 		cgv::render::ref_sphere_renderer(ctx, -1);
 		cgv::render::ref_arrow_renderer(ctx, -1);
 }
+
+void vr_scanning::draw_viewingcone(cgv::render::context& ctx, std::vector<vec3>& P, std::vector<rgb>& C, mat3 r, vec3 t) {
+	vec3 a = vec3(0.275, 0.25, 0.2375);
+	vec3 b = vec3(0.275, 0.25, -0.1525);
+	vec3 c = vec3(-0.2875, 0.25, -0.1525);
+	vec3 d = vec3(-0.2875, 0.25, 0.2375);
+	vec3 e = vec3(0, 0, 0);
+
+	a = r * a + t;
+	b = r * b + t;
+	c = r * c + t;
+	d = r * d + t;
+	e = r * e + t;
+	P.push_back(a);
+	P.push_back(b);
+	P.push_back(b);
+	P.push_back(c);
+	P.push_back(c);
+	P.push_back(d);
+	P.push_back(d);
+	P.push_back(a);
+
+	P.push_back(a);
+	P.push_back(e);
+	P.push_back(b);
+	P.push_back(e);
+	P.push_back(c);
+	P.push_back(e);
+	P.push_back(d);
+	P.push_back(e);
+
+	C.push_back(rgb(0, 1, 1));
+	C.push_back(rgb(0, 1, 1));
+	C.push_back(rgb(0, 1, 1));
+	C.push_back(rgb(0, 1, 1));
+	C.push_back(rgb(0, 1, 1));
+	C.push_back(rgb(0, 1, 1));
+	C.push_back(rgb(0, 1, 1));
+	C.push_back(rgb(0, 1, 1));
+	C.push_back(rgb(0, 1, 1));
+	C.push_back(rgb(0, 1, 1));
+	C.push_back(rgb(0, 1, 1));
+	C.push_back(rgb(0, 1, 1));
+	C.push_back(rgb(0, 1, 1));
+	C.push_back(rgb(0, 1, 1));
+	C.push_back(rgb(0, 1, 1));
+	C.push_back(rgb(0, 1, 1));
+
+}
+
 void vr_scanning::draw_pc(cgv::render::context& ctx, const point_cloud& pc)
 {
 		if (pc.get_nr_points() == 0)
@@ -1091,7 +1209,7 @@ void vr_scanning::draw_boudingbox(cgv::render::context& ctx, vec3& pos1, vec3& p
 void vr_scanning::draw(cgv::render::context& ctx)
 {
 	draw_boudingbox(ctx, pcbb.pos1, pcbb.pos2);
-
+	
 
 		if (show_points) {
 			auto& pr = cgv::render::ref_point_renderer(ctx);
@@ -1123,6 +1241,10 @@ void vr_scanning::draw(cgv::render::context& ctx)
 						C.push_back(c);
 					}
 			}
+			if(intermediate_depth.get_nr_pixels()!=0)
+				draw_viewingcone(ctx, P, C, intermediate_depth.camera_rotation, intermediate_depth.camera_translation);
+
+
 			if (P.size() > 0) {
 				cgv::render::shader_program& prog = ctx.ref_default_shader_program();
 				int pi = prog.get_position_index();

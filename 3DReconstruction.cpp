@@ -3,14 +3,18 @@
 #include <algorithm>
 #include "Tables.h"
 
+
 #define DPETHIMAGE_SSB_BP             0
-#define VERTICES_SSB_BP             1
+#define VERTICES_SSB_BP             1//gridpoints
+#define TRITABLES_SSB_BP    2
+#define TRINORMALS_SSB_BP      3
+#define TRIANGLES_SSB_BP    4
+#define CUBE_EDGES_SSB_BP  5
+#define NORMALS_SSB_BP    6
+#define NORMALID_SSB_BP    7
+#define TRIANGLEVERTICES_SSB_BP    8
 
-
-
-
-
-
+#define TSDFWEIGHT_SSB_BP 9
 
 
 
@@ -63,6 +67,12 @@ bool Reconstruction::init(rgbd_depth input, vec3 min, vec3 max, ivec3 reso, floa
 	max_pos= max;
 	resolution = reso;
 	voxel_length = voxellength;
+
+	createBuffers();
+	bindbuffer();
+
+
+
 	return true;
 }
 bool Reconstruction::init(rgbd_depth input, vec3 min, vec3 max) {
@@ -98,32 +108,22 @@ bool Reconstruction::tsdf_algorithm(cgv::render::context& ctx, bool isfirstframe
 	tsdf_prog.set_uniform(ctx, "min_pos", min_pos);
 	tsdf_prog.set_uniform(ctx, "max_pos", max_pos);
 	tsdf_prog.set_uniform(ctx, "voxel_length", voxel_length);
-
-
 	tsdf_prog.set_uniform(ctx, "fx_d", currentdepthimage.para.fx_d);
 	tsdf_prog.set_uniform(ctx, "fy_d", currentdepthimage.para.fy_d);
 	tsdf_prog.set_uniform(ctx, "cx_d", currentdepthimage.para.cx_d);
 	tsdf_prog.set_uniform(ctx, "cy_d", currentdepthimage.para.cy_d);
 	tsdf_prog.set_uniform(ctx, "depth_scale", currentdepthimage.para.depth_scale);
-
 	tsdf_prog.set_uniform(ctx, "DepthImageWidth", currentdepthimage.width);
 	tsdf_prog.set_uniform(ctx, "DepthImageHeight", currentdepthimage.height);
-
 	mat3 back_mat = transpose(currentdepthimage.camera_rotation);
-
 	tsdf_prog.set_uniform(ctx, "backrotationmatrix", back_mat);
 	tsdf_prog.set_uniform(ctx, "cam_pos", currentdepthimage.camera_translation);
-
 	tsdf_prog.set_uniform(ctx, "IsFirstFrame", isfirstframe);
-
-
 
 	tsdf_prog.enable(ctx);
 	glDispatchCompute(vereticesGridDims[0], vereticesGridDims[1], vereticesGridDims[2]);
 	glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 	tsdf_prog.disable(ctx);
-
-
 
 
 
@@ -177,6 +177,12 @@ bool Reconstruction::tsdf_algorithm(cgv::render::context& ctx, bool isfirstframe
 
 }
 
+
+
+
+
+
+
 bool Reconstruction::MC_algorithm(cgv::render::context& ctx) {
 
 
@@ -187,25 +193,33 @@ bool Reconstruction::MC_algorithm(cgv::render::context& ctx) {
 
 bool Reconstruction::drawmesh(cgv::render::context& ctx) {
 
-	return false;
+	// Retrieve the number of generated vertices and triangles
+	if (numTriangles == 0)
+		return false;
+	glEnable(GL_COLOR_MATERIAL);
+	glEnable(GL_LIGHTING);
+	glColor3f(1.f, 1.f, 1.f);
+	glBindBuffer(GL_ARRAY_BUFFER, vertices.id);
+	glEnableClientState(GL_VERTEX_ARRAY);
+	glVertexPointer(3, GL_FLOAT, 0, (void*)(sizeof(GLuint)));
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	glBindBuffer(GL_ARRAY_BUFFER, normals.id);
+	glEnableClientState(GL_NORMAL_ARRAY);
+	glNormalPointer(GL_FLOAT, 0, 0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, triangles.id);
+	glDrawElements(GL_TRIANGLES, numTriangles * 3, GL_UNSIGNED_INT, (void*)(sizeof(GLuint)));
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+	glDisableClientState(GL_VERTEX_ARRAY);
+	glDisableClientState(GL_NORMAL_ARRAY);
+
+
+	return true;
 
 }
-
-
-
-void Reconstruction::deleteBuffers() {
-
-	depthimage.deleteBuffer();
-	vertices.deleteBuffer();
-
-}
-void Reconstruction::bindbuffer() {
-
-	depthimage.setBindingPoint(DPETHIMAGE_SSB_BP);
-	vertices.setBindingPoint(VERTICES_SSB_BP);
-
-}
-
 
 
 
@@ -220,6 +234,7 @@ void Reconstruction::createBuffers() {
 	vertices = Buffer(GL_SHADER_STORAGE_BUFFER, GL_DYNAMIC_COPY, vertices_length * sizeof(float));
 
 	depthimage = Buffer(GL_SHADER_STORAGE_BUFFER, GL_DYNAMIC_COPY, pixels_length * sizeof(int));
+	tsdfweight = Buffer(GL_SHADER_STORAGE_BUFFER, GL_DYNAMIC_COPY, vertices_length * sizeof(float));
 	trianglenormals = Buffer(GL_SHADER_STORAGE_BUFFER, GL_DYNAMIC_COPY, maxNumTriangles * 3 * sizeof(float));
 	triangles = Buffer(GL_SHADER_STORAGE_BUFFER, GL_DYNAMIC_COPY, maxNumTriangles * 3 * sizeof(int) + sizeof(GLuint));
 	cubeedges = Buffer(GL_SHADER_STORAGE_BUFFER, GL_DYNAMIC_COPY, cube_length * 13 * sizeof(int));
@@ -236,12 +251,13 @@ void Reconstruction::createBuffers() {
 
 
 }
+
+
 void Reconstruction::updateBuffers() {
 
 	int pixels_length = currentdepthimage.height * currentdepthimage.width;
 	int vertices_length = (resolution[0] + 1) * (resolution[1] + 1) * (resolution[2] + 1);
 	int cube_length = resolution[0] * resolution[1] * resolution[2];
-
 
 	depthimage = Buffer(GL_SHADER_STORAGE_BUFFER, GL_DYNAMIC_COPY, pixels_length * sizeof(int));
 	trianglenormals = Buffer(GL_SHADER_STORAGE_BUFFER, GL_DYNAMIC_COPY, maxNumTriangles * 3 * sizeof(float));
@@ -253,6 +269,8 @@ void Reconstruction::updateBuffers() {
 
 
 }
+
+
 void Reconstruction::deleteBuffers()
 {
 		depthimage.deleteBuffer();
@@ -269,6 +287,7 @@ void Reconstruction::deleteBuffers()
 void Reconstruction::deleteAllBuffers(){
 
 	depthimage.deleteBuffer();
+	tsdfweight.deleteBuffer();
 	vertices.deleteBuffer();
 	trianglenormals.deleteBuffer();
 	triangles.deleteBuffer();
@@ -296,3 +315,25 @@ int* Reconstruction::flattenTriTable()
 	}
 	return flatTriTable;
 }
+
+void Reconstruction::bindbuffer()
+{
+
+	depthimage.setBindingPoint(DPETHIMAGE_SSB_BP);
+	tsdfweight.setBindingPoint(TSDFWEIGHT_SSB_BP);
+	vertices.setBindingPoint(VERTICES_SSB_BP);
+	tables.setBindingPoint(TRITABLES_SSB_BP);	
+	trianglenormals.setBindingPoint(TRINORMALS_SSB_BP);	
+	triangles.setBindingPoint(TRIANGLES_SSB_BP);
+	cubeedges.setBindingPoint(CUBE_EDGES_SSB_BP);
+	normals.setBindingPoint(NORMALS_SSB_BP);
+	normalid.setBindingPoint(NORMALID_SSB_BP);
+	trianglevertices.setBindingPoint(TRIANGLEVERTICES_SSB_BP);
+			
+	GLuint zero = 0;
+	trianglevertices.setSubData(0, sizeof(GLuint), &zero);
+	triangles.setSubData(0, sizeof(GLuint), &zero);
+	
+}
+
+

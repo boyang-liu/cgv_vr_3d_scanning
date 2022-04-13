@@ -38,6 +38,8 @@
 #include <rgbd_mouse.h>
 #include "rgbd_depth.h"
 #include "PCBoundingbox.h"
+#include "3DReconstruction.h"
+
 ///@ingroup VR
 ///@{
 
@@ -235,6 +237,7 @@ public:
 	bool record_this_frame(double t);
 	void timer_event(double t, double dt);
 	void test();
+	void test2();
 
 	std::string get_type_name() const;
 
@@ -245,6 +248,7 @@ public:
 	bool handle(cgv::gui::event& e);
 	bool init(cgv::render::context& ctx);
 	void clear(cgv::render::context& ctx);
+	void draw_viewingcone(cgv::render::context& ctx, std::vector<vec3>& P, std::vector<rgb>& C, mat3 r, vec3 t);
 	void draw_pc(cgv::render::context& ctx, const point_cloud& pc);
 	void draw_boudingbox(cgv::render::context& ctx, vec3& pos1, vec3& pos2);
 	void draw(cgv::render::context& ctx);
