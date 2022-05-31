@@ -36,11 +36,13 @@
 	typedef float Crd;
 	typedef cgv::math::fvec<float, 3> vec3;
 	/// type of color components
+	typedef cgv::math::fvec<float, 4> vec4;
 	typedef cgv::type::uint8_type ClrComp;
 	typedef cgv::media::color<float, cgv::media::RGB, cgv::media::OPACITY> RGBA;
 	/// 3d point type
 	typedef cgv::math::fvec<Crd, 3> Pnt;
 	/// 3d normal type
+
 	typedef cgv::math::fvec<Crd, 3> Nml;
 	/// 3d direction type
 	typedef cgv::math::fvec<Crd, 3> Dir;
@@ -73,11 +75,8 @@
 	/// quaternions used to represent rotations
 	typedef cgv::math::quaternion<Crd> Qat;
 	/// simple structure to store the point range of a point cloud component
-
-	struct parameters {
-		float fx_d, fy_d, cx_d, cy_d, depth_scale;
-
-	};
+	typedef cgv::math::fmat<float, 3, 4> mat34;
+	
 
 class rgbd_depth 
 {
@@ -90,14 +89,10 @@ public:
 		camera_translation = vec3(0, 0, 0);
 		width = 0;
 		height = 0;
-		para.fx_d = 0;
-		para.fy_d = 0;
-		para.cx_d = 0;
-		para.cy_d = 0;
-		para.depth_scale = 0;
 
-
-
+		kinect_proj.set_row(0, vec4(539.1343, 0, 325.9691, 0));
+		kinect_proj.set_row(1, vec4(0, 539.3022, 243.607, 0));
+		kinect_proj.set_row(2, vec4(0, 0, 1, 0));
 	}
 	bool write_rgbd_depth(const std::string& file_name);
 	bool read_rgbd_depth(const std::string& file_name);
@@ -113,7 +108,7 @@ public:
 	bool V1_map_depth_to_point(int x, int y, int depth, float* point_ptr) const;
 
 	
-	parameters para;
+
 
 
 
@@ -121,13 +116,16 @@ public:
 	void clear_depth();
 
 	std::vector<int> Pixels;
-	
+	std::vector<vec3> Colors;
+
 	int width;
 	int height;
 
 	vec3 camera_pos;
 	Mat camera_rotation;
 	vec3 camera_translation;
+
+	mat34 kinect_proj;
 
 
 protected:

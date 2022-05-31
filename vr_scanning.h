@@ -59,8 +59,14 @@
 //#include <opencv2/highgui.hpp>
 //#include <opencv2/features2d/features2d.hpp>
 
+
+
+
 // different interaction states for the controllers
 enum InteractionState { IS_NONE, IS_OVER, IS_GRAB };
+
+typedef cgv::math::fmat<float, 3, 4> mat34;
+
 
 class vr_scanning : public cgv::base::node,
 	public cgv::render::drawable,
@@ -219,12 +225,15 @@ protected:
 
 	PCBoundingbox pcbb;
 
+	Reconstruction* recon = new  Reconstruction();
 
 public:
 	vr_scanning();
 	size_t generate_depths();
 	void generate_mesh();
 	size_t construct_point_cloud();
+	mat34 kinect_proj_mat;
+	mat3 inv_kinect_proj_mat;
 	rgbd::frame_type read_rgb_frame(); // should be a thread
 	rgbd::frame_type read_depth_frame();
 	/// here should be const point cloud
@@ -236,9 +245,9 @@ public:
 	void construct_TSDtree();
 	bool record_this_frame(double t);
 	void timer_event(double t, double dt);
-	void test();
-	void test2();
-
+	void savergbdpc();
+	void loadfile();
+	void saveobj();
 	std::string get_type_name() const;
 
 	void create_gui();

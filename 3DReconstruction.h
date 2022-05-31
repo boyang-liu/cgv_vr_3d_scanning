@@ -28,7 +28,7 @@ public:
 	vec3 min_pos;
 	vec3 max_pos;
 	float voxel_length;
-	float surfacelevel;
+	float surfacelevel=0;
 	int maxNumVertices;
 	int maxNumTriangles;
 	GLuint numVertices = 0;
@@ -38,7 +38,7 @@ public:
 	void deleteAllBuffers();
 	int* flattenTriTable();
 	void bindbuffer();
-
+	void writeobj(const std::string& file_name);
 protected:
 	cgv::render::shader_program tsdf_prog;
 	cgv::render::shader_program triangle_prog;
@@ -55,6 +55,9 @@ private:
 	Buffer trianglenormals;
 	Buffer triangles;
 
+	Buffer colorimage;
+	Buffer vertexcolors;//gridpoints color
+	Buffer colors;
 
 	Buffer cubeedges;
 	Buffer trianglevertices;

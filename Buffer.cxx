@@ -1,5 +1,6 @@
 #include "Buffer.h"
-
+//#include <vector>
+//#include <iostream>
 #define NULL 0
 
 Buffer::Buffer()
@@ -36,6 +37,13 @@ void Buffer::setSubData(int offset, size_t _size, const void* data) {
 	glBufferSubData(target, offset, _size, data);
 	glBindBuffer(target, 0);
 }
+void Buffer::setBufferData(size_t _size, const void* data) {
+	glBindBuffer(target, id);
+	glBufferData(target, _size, data, usage);
+	glBindBuffer(target, 0);
+}
+
+
 void Buffer::getData(void* container) { 
 	getSubData(0, size, container); 
 }
@@ -51,3 +59,11 @@ void Buffer::deleteBuffer()
 {
 	glDeleteBuffers(1, &id);
 }
+
+//void Buffer::getMapNamedSubData(int offset, size_t _size, std::vector<float>& result) {
+//
+//	GLuint* results_ptr = static_cast<GLuint*>(glMapNamedBufferRange(
+//		id, offset, _size, GL_MAP_READ_BIT));
+//	std::memcpy(result.data(), results_ptr, result.size() * sizeof(float));
+//	
+//}

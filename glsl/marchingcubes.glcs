@@ -31,6 +31,12 @@ struct Vector
     float x, y, z;
 };
 
+struct rgbcolor
+{
+    float r, g, b;
+};
+
+
 layout (std430, binding = 8) buffer vertexBuffer
 {
     int vertCount;
@@ -44,6 +50,16 @@ layout (std430, binding = 7) buffer normalidBuffer
     int normalid[];
 };
 
+layout (std430, binding = 12) buffer gridpointcolorBuffer
+{
+    rgbcolor gridcolors[];//grid color info
+};
+layout (std430, binding = 10) buffer trivertexcolorBuffer
+{
+    rgbcolor trivertexcolor[];
+};
+
+
 
 
 
@@ -52,6 +68,7 @@ struct ControlNode
 {
     vec3 pos;
     float value;
+	vec3 color;
 };
 
 uniform ivec3 vereticesGridDims;
@@ -97,11 +114,12 @@ int indexCube(int x, int y, int z){
 
 ControlNode getControlNode(int x, int y, int z){
 
-    //int i = indexPoint(x, y, z);
+    int i = indexPoint(x, y, z);
 	vec3 boundingbox_size=(max_pos-min_pos);
 	vec3 vertexPos =vec3(float(boundingbox_size.x/cubeGridDims.x*x+min_pos.x),float(boundingbox_size.y/cubeGridDims.y*y+min_pos.y),float(boundingbox_size.z/cubeGridDims.z*z+min_pos.z));
-    
-	return ControlNode(vertexPos, gridpoints[indexPoint(x, y, z)]);
+    vec3 co=vec3(gridcolors[i].r,gridcolors[i].g,gridcolors[i].b);
+
+	return ControlNode(vertexPos, gridpoints[i],co);
 }
 
 // returns the vqlue used for vertex interpolation
@@ -123,7 +141,7 @@ void createEdgeVertex(int edgeLocalID){
     float t = tvalue(nodeA.value, nodeB.value);
 
     vec3 p = mix(nodeA.pos, nodeB.pos, t);	
-
+	vec3 c = mix(nodeA.color, nodeB.color, t);	
 
     //vec3 n = mix(nodeA.normal, nodeB.normal, t);
 
@@ -131,12 +149,15 @@ void createEdgeVertex(int edgeLocalID){
 
     vertices[vertexID] = Vector(p.x, p.y, p.z);
 	normalid[vertexID*17+16] =0;
-   
+    trivertexcolor[vertexID]= rgbcolor(c.x,c.y,c.z);
+	//trivertexcolor[vertexID]=rgbcolor(nodeA.color.x,nodeA.color.y,nodeA.color.z);
+
 
     // Store the vertex id in the cube's edge location
 
     edgeNodes[edgeLocalID] = vertexID;
 }
+
 
 
 
@@ -234,12 +255,23 @@ void main(){
 
 
 	}
+	
+	if(weights[indexPoint(x,y,z)]!=0||weights[indexPoint(x,y+1,z)]!=0||weights[indexPoint(x+1,y+1,z)]!=0||weights[indexPoint(x+1,y,z)]!=0||
+	weights[indexPoint(x,y,z+1)]!=0||weights[indexPoint(x,y+1,z+1)]!=0||weights[indexPoint(x+1,y+1,z+1)]!=0||weights[indexPoint(x+1,y,z+1)]!=0)
+		cubes[currentCubeID+12] = configuration;
+	else
+		cubes[currentCubeID+12] = 0;
 
-	if(weights[indexPoint(x,y,z)]==0||weights[indexPoint(x,y+1,z)]==0||weights[indexPoint(x+1,y+1,z)]==0||weights[indexPoint(x+1,y,z)]==0||
+	
+	
+}
+
+
+
+
+	/* if(weights[indexPoint(x,y,z)]==0||weights[indexPoint(x,y+1,z)]==0||weights[indexPoint(x+1,y+1,z)]==0||weights[indexPoint(x+1,y,z)]==0||
 	weights[indexPoint(x,y,z+1)]==0||weights[indexPoint(x,y+1,z+1)]==0||weights[indexPoint(x+1,y+1,z+1)]==0||weights[indexPoint(x+1,y,z+1)]==0)
 		cubes[currentCubeID+12] = 0;
 	 else
 		cubes[currentCubeID+12] = configuration;
-	
-	
-}
+	*/

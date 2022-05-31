@@ -141,10 +141,12 @@ void vr_scanning::on_device_change(void* kit_handle, bool attach)
 /// construct a scene with a table
 void vr_scanning::build_scene(float w, float d, float h, float W, float tw, float td, float th, float tW)
 {
-	construct_room(w, d, h, W, false, false);
+	boxes.push_back(box3(vec3(-0.9f * w, -W, -1.1f * d) + vec3(1, -1, 2), vec3(0.9f * w, 0, 1.1f * d) + vec3(1, -1, 2)));
+	box_colors.push_back(rgb(0.2f, 0.2f, 0.2f));
+	/*construct_room(w, d, h, W, false, false);
 	construct_table(tw, td, th, tW);
 	construct_environment(0.2f, 3 * w, 3 * d, h, w, d, h);
-	construct_movable_boxes(tw, td, th, tW, 20);
+	construct_movable_boxes(tw, td, th, tW, 20);*/
 }
 	/// generate a random point cloud
 	void vr_scanning::generate_point_cloud(point_cloud& pc)
@@ -247,6 +249,17 @@ vr_scanning::vr_scanning()
 		pcbb.pos1 = vec3(0.03623, -0.85, 2.45);
 		pcbb.pos2 = vec3(2.03623, 1.15, 4.45);
 
+		//kinect_proj_mat = { 539.1343,0,325.9691,0,0,539.3022,243.607,0,0,0,1,0 };
+		kinect_proj_mat.set_row(0, vec4(539.1343,         0,    325.9691,    0));
+		kinect_proj_mat.set_row(1, vec4(0        , 539.3022,   243.607,    0));
+		kinect_proj_mat.set_row(2, vec4(0        ,        0,    1,        0));
+		inv_kinect_proj_mat.set_row(0, vec3(0.001855, 0        , -0.6046));
+		inv_kinect_proj_mat.set_row(1, vec3(0       , 0.001854 , -0.45171));
+		inv_kinect_proj_mat.set_row(2, vec3(0       , 0        ,        1));
+		/*inv_kinect_proj_mat.set_row(0, vec3(0.00168, 0, -0.5707));
+		inv_kinect_proj_mat.set_row(1, vec3(0, 0.00169, -0.40971));
+		inv_kinect_proj_mat.set_row(2, vec3(0, 0, 1));*/
+
 }
 
 
@@ -260,16 +273,7 @@ size_t vr_scanning::generate_depths() {
 	intermediate_depth.clear_depth();
 	const unsigned short* depths = reinterpret_cast<const unsigned short*>(&depth_frame_2.frame_data.front());
 
-	double fx_d, fy_d, cx_d, cy_d, depth_scale;
-	rgbd_inp.get_V1_parameters(fx_d, fy_d, cx_d, cy_d, depth_scale);
-	//std::cout<< fx_d <<"/" << fy_d << "/" << cx_d << "/" << cy_d << "/" << depth_scale << std::endl;
-
 	
-	intermediate_depth.para.fx_d = float(fx_d);
-	intermediate_depth.para.fy_d = float(fy_d);
-	intermediate_depth.para.cx_d = float(cx_d);
-	intermediate_depth.para.cy_d = float(cy_d);
-	intermediate_depth.para.depth_scale = float(depth_scale);
 
 	intermediate_depth.height = depth_frame_2.height;
 	intermediate_depth.width = depth_frame_2.width;
@@ -311,11 +315,7 @@ void vr_scanning::generate_mesh() {
 
 size_t vr_scanning::construct_point_cloud()
 {
-	/*double fx_d, fy_d, cx_d, cy_d, depth_scale;
-	rgbd_inp.get_V1_parameters(fx_d, fy_d, cx_d, cy_d, depth_scale);
-	std::cout<< fx_d << fy_d << cx_d << cy_d << depth_scale <<std::endl;*/
-
-
+	
 
 
 
@@ -338,72 +338,91 @@ size_t vr_scanning::construct_point_cloud()
 			colors = reinterpret_cast<const unsigned char*>(&warped_color_frame_2.frame_data.front());
 		}
 
+
+
+
+		intermediate_depth.clear_depth();
+		intermediate_depth.height = depth_frame_2.height;
+		intermediate_depth.width = depth_frame_2.width;
+		std::vector<int> mypixels;
+		std::vector<vec3> mycolors;
+		int i2 = 0;
+
+
+
+
+
 		int i = 0;
 		for (int y = 0; y < depth_frame_2.height; ++y)
 			for (int x = 0; x < depth_frame_2.width; ++x) {
+
+
+
+
 				vec3 p;
-				if (rgbd_inp.map_depth_to_point(x, y, depths[i], &p[0])) {
-					// flipping y to make it the same direction as in pixel y coordinate
-					p = -p;
-					//p = rgbd_2_controller_orientation * p + rgbd_2_controller_position;
-					p = controller_orientation_pc * p + controller_position_pc;
-					rgba8 c(colors[4 * i + 2], colors[4 * i + 1], colors[4 * i], 255);
-					point_cloud::Pnt vp;
-					point_cloud::Clr vc;
-					// filter points without color for 32 bit formats
-					static const rgba8 filter_color = rgba8(0, 0, 0, 255);
-					if (!(c == filter_color)) {
-						vc = c;
-						vp = p;
-					}
-					// v.point = p;
-					// v.color = c;
-					intermediate_pc.add_point(vp, vc);
-				}
-				++i;
-			}
 
+				p = inv_kinect_proj_mat * vec3(x, y, 1);
+				p = vec3(depths[i] * p[0], depths[i] * p[1], depths[i]);
+				p = vec3(p[0]/8000, p[1] / 8000, p[2] / 8000);
+				p = -p;
 
-		//=============================
-
-		intermediate_depth.clear_depth();
-		//const unsigned short* depths = reinterpret_cast<const unsigned short*>(&depth_frame_2.frame_data.front());
-
-		double fx_d, fy_d, cx_d, cy_d, depth_scale;
-		rgbd_inp.get_V1_parameters(fx_d, fy_d, cx_d, cy_d, depth_scale);
-		//std::cout<< fx_d <<"/" << fy_d << "/" << cx_d << "/" << cy_d << "/" << depth_scale << std::endl;
-
-
-		intermediate_depth.para.fx_d = fx_d;
-		intermediate_depth.para.fy_d = fy_d;
-		intermediate_depth.para.cx_d = cx_d;
-		intermediate_depth.para.cy_d = cy_d;
-		intermediate_depth.para.depth_scale = depth_scale;
-
-		intermediate_depth.height = depth_frame_2.height;
-		intermediate_depth.width = depth_frame_2.width;
+				p = controller_orientation_pc * p + controller_position_pc;
+				rgba8 c(colors[4 * i + 2], colors[4 * i + 1], colors[4 * i], 255);
+				point_cloud::Pnt vp;
+				point_cloud::Clr vc;
+				// filter points without color for 32 bit formats
+				static const rgba8 filter_color = rgba8(0, 0, 0, 255);
+				if (!(c == filter_color)) {
+					vc = c;
+					vp = p;
+				}					
+				intermediate_pc.add_point(vp, vc);
 
 
 
-		std::vector<int> mypixels;
 
-		int i2 = 0;
-		for (int y = 0; y < depth_frame_2.height; ++y)
-			for (int x = 0; x < depth_frame_2.width; ++x) {
-
+				
 				mypixels.push_back(depths[i2]);
-
+				mycolors.push_back(vec3(float(colors[4 * i2 + 2])/255, float(colors[4 * i2 + 1]) / 255, float(colors[4 * i2 + 0]) / 255));
 				++i2;
 
+				++i;
 			}
 		intermediate_depth.Pixels = mypixels;
+		intermediate_depth.Colors = mycolors;
 		intermediate_depth.camera_rotation = controller_orientation_pc;
 		intermediate_depth.camera_translation = controller_position_pc;
 		intermediate_depth.camera_pos = intermediate_depth.camera_rotation * vec3(0, 0, 0) + intermediate_depth.camera_translation;
 
-		
+		////=============================
 
-		//=============================
+		//intermediate_depth.clear_depth();
+		////const unsigned short* depths = reinterpret_cast<const unsigned short*>(&depth_frame_2.frame_data.front());
+		//
+
+		//intermediate_depth.height = depth_frame_2.height;
+		//intermediate_depth.width = depth_frame_2.width;
+
+
+
+		//std::vector<int> mypixels;
+		//std::vector<vec3> mycolors;
+		//int i2 = 0;
+		//for (int y = 0; y < depth_frame_2.height; ++y)
+		//	for (int x = 0; x < depth_frame_2.width; ++x) {
+		//		mypixels.push_back(depths[i2]);
+		//		mycolors.push_back(vec3(float(colors[4 * i2 + 2]) , float(colors[4 * i2 + 1]) , float(colors[4 * i2]) ));
+		//		++i2;
+		//	}
+		//intermediate_depth.Pixels = mypixels;
+		//intermediate_depth.Colors = mycolors;
+		//intermediate_depth.camera_rotation = controller_orientation_pc;
+		//intermediate_depth.camera_translation = controller_position_pc;
+		//intermediate_depth.camera_pos = intermediate_depth.camera_rotation * vec3(0, 0, 0) + intermediate_depth.camera_translation;
+
+		//
+
+		////=============================
 
 
 
@@ -567,6 +586,15 @@ void vr_scanning::timer_event(double t, double dt)
 				post_redraw();
 			}
 		}
+		if (intermediate_depth.get_nr_pixels()!=0)
+		{
+			
+			cgv::render::context& ctx = *get_context();
+			recon->init(intermediate_depth, pcbb.pos1, pcbb.pos2, ivec3(200, 200, 200), 0.01);
+			recon->tsdf_algorithm(ctx, true);
+			intermediate_depth.clear_depth();
+		}
+
 		if (rgbd_inp.is_started()) {
 			if (rgbd_inp.is_started()) {
 				bool new_frame;
@@ -637,7 +665,7 @@ void vr_scanning::timer_event(double t, double dt)
 }
 
 
-void vr_scanning::test()
+void vr_scanning::savergbdpc()
 {
 	//intermediate_depth.write_txt();
 
@@ -661,7 +689,30 @@ void vr_scanning::test()
 
 
 }
-void vr_scanning::test2() {
+
+
+void vr_scanning::loadfile() {
+
+	/*std::cout << "kinect_proj_mat: " << kinect_proj_mat << std::endl;
+	vec4 l = vec4(1, 2, 3, 0);
+	vec3 l2 = kinect_proj_mat *l;
+	std::cout << "l2: " << l2 << std::endl;
+	vec3 ll = inv_kinect_proj_mat * l2;
+	std::cout << "ll: " << ll << std::endl;*/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 	std::string fn = cgv::gui::file_open_dialog("source point cloud(*.lbypc;*.obj;*.pobj;*.ply;*.bpc;*.lpc;*.xyz;*.pct;*.points;*.wrl;*.apc;*.pnt;*.txt)", "Point cloud files:*.lbypc;*.obj;*.pobj;*.ply;*.bpc;*.lpc;*.xyz;*.pct;*.points;*.wrl;*.apc;*.pnt;*.txt;");
 	
@@ -672,35 +723,25 @@ void vr_scanning::test2() {
 	mydepthimage.read_txt(fn);
 
 	std::cout << "mydepthimage.get_nr_pixels(): "<< mydepthimage.get_nr_pixels() << std::endl;
-	
-	Reconstruction myrecon;
-	cgv::render::context& ctx = *get_context();
-
-	//myrecon.build_program(ctx);
-	//myrecon.init(mydepthimage, vec3(0.83623, -0.728815, 2.24123), vec3(2.83623, 1.271185, 4.24123), ivec3(100,100,100), 0.02);
-
-	static const double fx_d = 1.0 / 5.9421434211923247e+02;
-	static const double fy_d = 1.0 / 5.9104053696870778e+02;
-	static const double cx_d = 3.3930780975300314e+02;
-	static const double cy_d = 2.4273913761751615e+02;
+	//std::cout << "mydepthimagepara.fy_d: " << mydepthimage.para.cx_d<< std::endl;
+		
 	int i = 0;
 
 	for (int y = 0; y < mydepthimage.height; ++y)
 		for (int x = 0; x < mydepthimage.width; ++x) {
 			vec3 p;
+
 			if (mydepthimage.Pixels[i] == 0) {
+
 				++i;
 				continue;
 			}
 			
-			int thisdepth=mydepthimage.Pixels[i] / 8;
-
+			//int a = mydepthimage.Pixels[i] / 8;
+			double currentdepth = mydepthimage.Pixels[i] *0.000125;
 			
-			double d = 0.001 * thisdepth;
-			p[0] = float((x - cx_d) * d * fx_d);
-			p[1] = float((y - cy_d) * d * fy_d);
-			p[2] = float(d);
-			
+			p = inv_kinect_proj_mat * vec3(x, y ,1);
+			p = vec3(currentdepth * p[0], currentdepth * p[1] , currentdepth);
 				// flipping y to make it the same direction as in pixel y coordinate
 
 				p = -p;
@@ -710,23 +751,67 @@ void vr_scanning::test2() {
 				p = mydepthimage.camera_rotation * p + mydepthimage.camera_translation;
 				
 				point_cloud::Pnt vp;
-				point_cloud::Clr vc;
-				// filter points without color for 32 bit formats
-				static const rgba8 filter_color = rgba8(0, 0, 0, 255);
-					vc = filter_color;
+				rgba8 c;
+				c=rgba8(int (mydepthimage.Colors[i][0]*255), int(mydepthimage.Colors[i][1] * 255), int(mydepthimage.Colors[i][2] * 255),255);
+				
+				// filter points without color for 32 bit formats			
 					vp = p;
 
-				intermediate_pc.add_point(vp, vc);
+				intermediate_pc.add_point(vp, c);
 			
 			++i;
 		}
 
-	std::cout << "mydepthimage.Pixels[10]: " << mydepthimage.Pixels[10] << std::endl;
+	std::cout << "mydepthimage.Colors.size(): " << mydepthimage.Pixels.size() << std::endl;
+	std::cout << "mydepthimage.Colors.size(): " << mydepthimage.Colors.size() << std::endl;
 
 	current_pc = intermediate_pc;
 	intermediate_depth = mydepthimage;
-}
+	
 
+	//std::string fn2 = cgv::gui::file_save_dialog("point cloud", "Point Cloud Files (lbypc,ply,bpc,apc,obj):*.txt;*.lbypc");
+
+	//if (fn2.empty())
+	//	return;
+	//FILE* fp2 = fopen(fn2.c_str(), "wb");
+	//if (!fp2)
+	//	return;
+
+	//intermediate_depth.write_txt(fn2);
+
+	//fclose(fp2);
+
+	return;
+
+}
+void vr_scanning::saveobj() {
+
+
+
+	
+
+
+	std::string fn = cgv::gui::file_save_dialog("point cloud", "Point Cloud Files (lbypc,ply,bpc,apc,obj):*.txt;*.obj");
+
+
+	if (fn.empty())
+		return;
+	FILE* fp = fopen(fn.c_str(), "wb");
+	if (!fp)
+		return;
+
+	recon->writeobj(fn);
+
+	fclose(fp);
+
+
+
+
+
+
+
+	return;
+}
 
 
 
@@ -753,8 +838,11 @@ void vr_scanning::create_gui()
 
 		add_gui("rgbd_protocol_path", rgbd_protocol_path, "directory", "w=150");
 
-		
-		connect_copy(add_button("test")->click, rebind(this, &vr_scanning::test2));
+		connect_copy(add_button("save pc")->click, rebind(this, &vr_scanning::savergbdpc));
+		connect_copy(add_button("load file")->click, rebind(this, &vr_scanning::loadfile));
+		connect_copy(add_button("save as .obj")->click, rebind(this, &vr_scanning::saveobj));
+
+
 		add_member_control(this, "rgbd_started", rgbd_started, "check");
 		add_member_control(this, "record_frame", record_frame, "check");
 		add_member_control(this, "record_all_frames", record_all_frames, "check");
@@ -1064,6 +1152,9 @@ bool vr_scanning::init(cgv::render::context& ctx)
 		cgv::render::ref_box_renderer(ctx, 1);
 		cgv::render::ref_sphere_renderer(ctx, 1);
 		cgv::render::ref_arrow_renderer(ctx, 1);
+
+		recon->build_program(ctx);
+
 		return true;
 }
 void vr_scanning::clear(cgv::render::context& ctx)
@@ -1209,8 +1300,10 @@ void vr_scanning::draw_boudingbox(cgv::render::context& ctx, vec3& pos1, vec3& p
 void vr_scanning::draw(cgv::render::context& ctx)
 {
 	draw_boudingbox(ctx, pcbb.pos1, pcbb.pos2);
-	
 
+
+	if (recon->maxNumTriangles != 0)
+		recon->drawmesh(ctx);
 		if (show_points) {
 			auto& pr = cgv::render::ref_point_renderer(ctx);
 			pr.set_render_style(point_style);
@@ -1273,7 +1366,7 @@ void vr_scanning::draw(cgv::render::context& ctx)
 		renderer.disable(ctx);
 
 		// draw dynamic boxes
-		renderer.set_render_style(movable_style);
+		/*renderer.set_render_style(movable_style);
 		renderer.set_box_array(ctx, movable_boxes);
 		renderer.set_color_array(ctx, movable_box_colors);
 		renderer.set_translation_array(ctx, movable_box_translations);
@@ -1281,7 +1374,7 @@ void vr_scanning::draw(cgv::render::context& ctx)
 		if (renderer.validate_and_enable(ctx)) {
 			glDrawArrays(GL_POINTS, 0, (GLsizei)movable_boxes.size());
 		}
-		renderer.disable(ctx);
+		renderer.disable(ctx);*/
 
 		// draw intersection points
 		if (!intersection_points.empty()) {

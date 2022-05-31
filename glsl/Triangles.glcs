@@ -73,7 +73,7 @@ Vector getTriangleNormal(int Va,int Vb,int Vc){
 	vec3 edge1 = vec3( edge1x, edge1y, edge1z );
 	vec3 edge2 = vec3( edge2x, edge2y, edge2z );
 
-	vec3 trinormal = cross(edge2, edge1);
+	vec3 trinormal = cross(edge1, edge2);
 	return Vector(trinormal.x,trinormal.y,trinormal.z);
 
 }
